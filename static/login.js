@@ -97,8 +97,11 @@ $(document).ready(() => {
         // Set focus and value to the username field
         $('#username').focus();
         $('#username').val(username);
+        if(username !== null){
+            authenticateUser()
+        }
 
         // Click handler for the "register" link
-        $('#registerLink').click(registerLinkClick.bind(registerLinkClick, username));
+        // $('#registerLink').click(registerLinkClick.bind(registerLinkClick, username));
     }
 });

@@ -199,16 +199,16 @@ func main() {
 		fmt.Printf("Warning!!! Test Mode enabled! This is not safe for production!\n\n")
 	}
 
-	// Patching user cookie name in login.html
+	// Patching user cookie name in login.js
 	if configuration.UserCookieName != "webauthn-proxy-username" {
-		data, err := os.ReadFile(filepath.Join(staticPath, "login.html"))
+		data, err := os.ReadFile(filepath.Join(staticPath, "login.js"))
 		if err != nil {
-			logger.Fatalf("Error reading login.html: %s", err)
+			logger.Fatalf("Error reading login.js: %s", err)
 		}
 		newData := strings.Replace(string(data), "webauthn-proxy-username", configuration.UserCookieName, -1)
-		err = os.WriteFile(filepath.Join(staticPath, "login.html"), []byte(newData), 0)
+		err = os.WriteFile(filepath.Join(staticPath, "login.js"), []byte(newData), 0)
 		if err != nil {
-			logger.Fatalf("Error saving login.html: %s", err)
+			logger.Fatalf("Error saving login.js: %s", err)
 		}
 	}
 	// If list of relying party origins has been specified in configuration,

@@ -5,40 +5,8 @@
         <link rel="icon" type="image/x-icon" href="/webauthn/static/favicon.ico" />
         <link rel="stylesheet" type="text/css" href="/webauthn/static/styles.css"  />
         <script src="/webauthn/static/jquery-3.6.3.min.js"></script>
-        <script src="/webauthn/static/script.js"></script>
-        <script>
-            $(document).ready(() => {
-                if (browserCheck()) {
-                    $('#username').keyup(function(e) {
-                        if ($("#username").is(":focus") && event.key == "Enter") {
-                            registerUser();
-                        }
-                    });
-                    $('#registerButton').click(registerUser);
-
-                    // Prepopulate the username field if specified
-                    let queryString = window.location.search;
-                    let urlParams = new URLSearchParams(queryString);
-                    if (urlParams.has('default_username')) {
-                        let username = urlParams.get('default_username');
-                        $('#username').val(username);
-                    }
-
-                    // Set up copy-to-clipboard button
-                    $('#copyButton').click(() => {
-                        var preformattedMessagesArea = $('#preformattedMessages');
-                        preformattedMessagesArea.select();
-                        navigator.clipboard.writeText(preformattedMessagesArea.val());
-
-                        // "Flash" it to indicate that the text was copied
-                        preformattedMessagesArea.fadeOut(200).fadeIn(200);
-                    });
-
-                    // Set focus to the username field
-                    $('#username').focus();
-                }
-            });
-        </script>
+        <script src="/webauthn/static/base.js"></script>
+        <script src="/webauthn/static/register.js"></script>
     </head>
     <body>
         <div id="form">

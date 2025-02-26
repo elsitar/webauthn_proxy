@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	yaml "gopkg.in/yaml.v3"
 )
 
 type Configuration struct {
@@ -37,6 +38,11 @@ type Configuration struct {
 	UserCookieName            string
 	UsernameRegex             string
 	CookieSecure              bool
+}
+
+type CredentialsConfiguration struct {
+	CookieSecrets []string          `yaml:"cookie_session_secrets"`
+	Credentials   map[string]string `yaml:"user_credentials"`
 }
 
 type WebAuthnMessage struct {
@@ -94,6 +100,8 @@ func main() {
 	}
 
 	var err error
+	var credfile []byte
+	var credentialsConfig CredentialsConfiguration
 	// Standard error messages
 	loginError = WebAuthnMessage{Message: "Unable to login"}
 	registrationError = WebAuthnMessage{Message: "Error during registration"}
@@ -136,12 +144,16 @@ func main() {
 		logger.Fatalf("Unable to decode config file into struct: %s", err)
 	}
 	// Read in credentials file
-	logger.Infof("Reading credentials file %s/credentials.yml", configpath)
-	viper.SetConfigName("credentials")
-	viper.SetConfigType("yml")
-	if err := viper.ReadInConfig(); err != nil {
-		logger.Fatalf("Error reading credentials file %s/credentials.yml: %s", configpath, err)
+	credentialspath := filepath.Join(configpath, "credentials.yml")
+	logger.Infof("Reading credentials file %s", credentialspath)
+
+	if credfile, err = os.ReadFile(credentialspath); err != nil {
+		logger.Fatalf("Unable to read credential file %s %v", credentialspath, err)
 	}
+	if err = yaml.Unmarshal(credfile, &credentialsConfig); err != nil {
+		logger.Fatalf("Unable to parse YAML credential file %s %v", credentialspath, err)
+	}
+
 	logger.Debugf("Configuration: %+v\n", configuration)
 	logger.Debugf("Viper AllSettings: %+v\n", viper.AllSettings())
 
@@ -154,7 +166,7 @@ func main() {
 		logger.Fatal("Invalid session hard timeout, must be > session soft timeout")
 	}
 
-	cookieSecrets = viper.GetStringSlice("cookie_session_secrets")
+	cookieSecrets = credentialsConfig.CookieSecrets
 	if len(cookieSecrets) == 0 {
 		logger.Warnf("You did not set any cookie_session_secrets in credentials.yml.")
 		logger.Warnf("So it will be dynamic and your cookie sessions will not persist proxy restart.")
@@ -164,7 +176,7 @@ func main() {
 		logger.Warnf("You did not set any valid cookie_session_secrets in credentials.yml.")
 		logger.Fatalf("Generate one using `-generate-secret` flag and add to credentials.yml.")
 	}
-	for username, credential := range viper.GetStringMapString("user_credentials") {
+	for username, credential := range credentialsConfig.Credentials {
 		unmarshaledUser, err := u.UnmarshalUser(credential)
 		if err != nil {
 			logger.Fatalf("Error unmarshalling user credential %s: %s", username, err)
@@ -312,7 +324,14 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Prevents html caching because this page serves two different pages.
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, post-check=0, pre-check=0")
 	if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
-		http.ServeFile(w, r, filepath.Join(staticPath, "login.html"))
+		content, err := os.ReadFile(filepath.Join(staticPath, "login.html"))
+		if err != nil {
+			util.JSONResponse(w, loginError, http.StatusNotFound)
+			return
+		}
+		content = []byte(strings.Replace(string(content), configuration.UserCookieName, configuration.UserCookieName, 1))
+		reader := bytes.NewReader(content)
+		http.ServeContent(w, r, "", time.Time{}, reader)
 		return
 	}
 
@@ -710,7 +729,7 @@ func createWebAuthnClient(origin string) (*webauthn.WebAuthn, *sessions.CookieSt
 	webAuthn, err := webauthn.New(&webauthn.Config{
 		RPDisplayName: configuration.RPDisplayName, // Relying party display name
 		RPID:          configuration.RPID,          // Relying party ID
-		RPOrigin:      origin,                      // Relying party origin
+		RPOrigins:     []string{origin},            // Relying party origin
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create WebAuthn for origin: %s", origin)
